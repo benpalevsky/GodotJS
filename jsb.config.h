@@ -29,7 +29,7 @@
 // see `internal/jsb_log_severity.def.h`
 #ifndef JSB_MIN_LOG_LEVEL
 #   if JSB_DEBUG
-#       define JSB_MIN_LOG_LEVEL Verbose
+#       define JSB_MIN_LOG_LEVEL Warning
 #   else
 #       define JSB_MIN_LOG_LEVEL Warning
 #   endif
@@ -56,11 +56,10 @@
 
 // (only available when using v8)
 // print gc time cost in milliseconds
-#define JSB_PRINT_GC_TIME 1
+#define JSB_PRINT_GC_TIME 0
 
-// (only available in editor build)
 // support hot-reload for javascript modules
-#define JSB_SUPPORT_RELOAD 1
+#define JSB_SUPPORT_RELOAD JSB_DEBUG
 
 // EXPERIMENTAL, LIMITED SUPPORT
 // only implemented in v8.impl, jsc.impl and quickjs.impl, temporarily.

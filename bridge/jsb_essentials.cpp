@@ -2,6 +2,7 @@
 #include "jsb_timer_action.h"
 #include "jsb_bridge_helper.h"
 #include "jsb_environment.h"
+#include "../weaver/jsb_script_language.h"
 
 namespace jsb
 {
@@ -227,9 +228,18 @@ namespace jsb
         }
     }
 
+    void _scan_external_changes(const v8::FunctionCallbackInfo<v8::Value>& info)
+    {
+        v8::Isolate* isolate = info.GetIsolate();
+        GodotJSScriptLanguage::get_singleton()->scan_external_changes();
+    }
+
     void Essentials::register_(const v8::Local<v8::Context>& context, const v8::Local<v8::Object>& self)
     {
         v8::Isolate* isolate = context->GetIsolate();
+
+        // GodotJS specific globals
+        self->Set(context, impl::Helper::new_string_ascii(isolate, "__godotjs_scan_external_changes"), JSB_NEW_FUNCTION(context, _scan_external_changes, {})).Check();
 
         // minimal console functions support
         {

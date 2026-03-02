@@ -1040,8 +1040,6 @@ namespace jsb
         for (const KeyValue<StringName, JavaScriptModule*>& kv : module_cache_.modules_)
         {
             JavaScriptModule* module = kv.value;
-            // skip script modules which are managed by the godot editor
-            if (module->script_class_id) continue;
             if (module->mark_as_reloading())
             {
                 requested_modules.append(module->id);

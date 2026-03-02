@@ -530,7 +530,7 @@ namespace jsb
             return false;
         }
 
-#if JSB_SUPPORT_RELOAD && defined(TOOLS_ENABLED)
+#if JSB_SUPPORT_RELOAD
         p_module.time_modified = p_reader.get_time_modified();
         p_module.hash = p_reader.get_hash();
 #endif
