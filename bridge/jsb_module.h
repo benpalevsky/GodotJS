@@ -40,7 +40,7 @@ namespace jsb
         // the default class exported in this JS module
         ScriptClassID script_class_id;
 
-#if JSB_SUPPORT_RELOAD && defined(TOOLS_ENABLED)
+#if JSB_SUPPORT_RELOAD
         bool reload_requested = false;
         uint64_t time_modified = 0;
         String hash;
@@ -48,7 +48,7 @@ namespace jsb
         jsb_force_inline bool is_reloading() const { return reload_requested; }
 
         // can't reload modules if it's time_modified is unknown or non-file modules
-        bool is_reloadable() const { return time_modified != 0 && !source_info.source_filepath.is_empty(); }
+        bool is_reloadable() const { return !source_info.source_filepath.is_empty(); }
 #else
         jsb_force_inline constexpr bool is_reloading() const { return false; }
         jsb_force_inline constexpr bool is_reloadable() const { return false; }

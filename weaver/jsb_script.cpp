@@ -236,6 +236,11 @@ Error GodotJSScript::reload(bool p_keep_state)
         // ...
 
         loaded_ = false;
+
+        if (p_keep_state)
+        {
+            load_module_immediately();
+        }
     }
     else if (result != jsb::ModuleReloadResult::NoChanges)
     {

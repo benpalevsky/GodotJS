@@ -415,6 +415,22 @@ void GodotJSScriptLanguage::scan_external_changes()
 {
     environment_->scan_external_changes();
 
+    // Reload all scripts that match the reloaded modules
+    {
+        MutexLock lock(mutex_);
+        SelfList<GodotJSScript>* elem = script_list_.first();
+        while (elem)
+        {
+            GodotJSScript* script = elem->self();
+            // We only reload if it was already loaded, to avoid loading everything
+            if (script->is_valid())
+            {
+                script->reload(true);
+            }
+            elem = elem->next();
+        }
+    }
+
 #ifdef TOOLS_ENABLED
     // fix scripts with no .js counterpart found (only missing scripts)
     {
