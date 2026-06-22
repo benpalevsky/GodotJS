@@ -5,25 +5,15 @@
 
 namespace jsb
 {
-    // JS function (type_name: string): type
-    // it's called from JS, load godot type with the `type_name` in the `godot` module (it can be type/singleton/constant/etc.)
-    // [JS] function load_type(type_name: string): Class;
-    static void _load_godot_object_class(const v8::FunctionCallbackInfo<v8::Value>& info)
+    bool GodotModuleLoader::resolve_godot_export(
+        Environment* p_env,
+        const v8::Local<v8::Context>& p_context,
+        const StringName& p_type_name,
+        v8::Local<v8::Value>& r_value)
     {
         JSB_BENCHMARK_SCOPE(JSRealm, _load_godot_mod);
 
-        v8::Isolate* isolate = info.GetIsolate();
-        const v8::Local<v8::Value> arg0 = info[0];
-        if (!arg0->IsString())
-        {
-            jsb_throw(isolate, "bad parameter");
-            return;
-        }
-
-        Environment* env = Environment::wrap(isolate);
-        jsb_check(env);
-        const v8::Local<v8::Context> context = isolate->GetCurrentContext();
-        const StringName p_type_name = impl::Helper::to_string(isolate, arg0);
+        v8::Isolate* isolate = p_env->get_isolate();
         if (internal::StringNames::get_singleton().is_replaced_name(p_type_name))
         {
             JSB_LOG(Warning,
@@ -42,14 +32,14 @@ namespace jsb
             {
                 JSB_LOG(VeryVerbose, "exposing singleton object %s", (String) original_name);
                 if (v8::Local<v8::Object> rval;
-                    TypeConvert::gd_obj_to_js(isolate, context, gd_singleton, rval) && !rval.IsEmpty())
+                    TypeConvert::gd_obj_to_js(isolate, p_context, gd_singleton, rval) && !rval.IsEmpty())
                 {
-                    env->mark_as_persistent_object(gd_singleton);
-                    info.GetReturnValue().Set(rval);
-                    return;
+                    p_env->mark_as_persistent_object(gd_singleton);
+                    r_value = rval;
+                    return true;
                 }
                 jsb_throw(isolate, "failed to bind a singleton object");
-                return;
+                return false;
             }
         }
 
@@ -60,9 +50,9 @@ namespace jsb
 
             // dynamic binding:
             static_assert(sizeof(Variant::ValidatedUtilityFunction) == sizeof(void*));
-            const int32_t utility_func_index = (int32_t) env->get_variant_info_collection().utility_funcs.size();
-            env->get_variant_info_collection().utility_funcs.append({});
-            internal::FUtilityMethodInfo& method_info = env->get_variant_info_collection().utility_funcs.write[utility_func_index];
+            const int32_t utility_func_index = (int32_t) p_env->get_variant_info_collection().utility_funcs.size();
+            p_env->get_variant_info_collection().utility_funcs.append({});
+            internal::FUtilityMethodInfo& method_info = p_env->get_variant_info_collection().utility_funcs.write[utility_func_index];
 
             const int argument_count = Variant::get_utility_function_argument_count(original_name);
             method_info.argument_types.resize(argument_count);
@@ -79,8 +69,8 @@ namespace jsb
             JSB_LOG(VeryVerbose, "expose godot utility function %s (%d)", original_name, utility_func_index);
             jsb_check(method_info.utility_func);
 
-            info.GetReturnValue().Set(JSB_NEW_FUNCTION(context, ObjectReflectBindingUtil::_godot_utility_func, v8::Int32::New(isolate, utility_func_index)));
-            return;
+            r_value = JSB_NEW_FUNCTION(p_context, ObjectReflectBindingUtil::_godot_utility_func, v8::Int32::New(isolate, utility_func_index));
+            return true;
         }
 
         // (3) global_constants
@@ -88,27 +78,27 @@ namespace jsb
         {
             const int constant_index = CoreConstants::get_global_constant_index(original_name);
             const int64_t constant_value = CoreConstants::get_global_constant_value(constant_index);
-            info.GetReturnValue().Set(impl::Helper::new_integer(isolate, constant_value));
-            return;
+            r_value = impl::Helper::new_integer(isolate, constant_value);
+            return true;
         }
 
         // (4) classes in ClassDB/PrimitiveTypes
         {
-            if (const NativeClassInfoPtr class_info = env->expose_class(p_type_name))
+            if (const NativeClassInfoPtr class_info = p_env->expose_class(p_type_name))
             {
                 jsb_check(class_info->name == p_type_name);
                 jsb_check(!class_info->clazz.IsEmpty());
-                info.GetReturnValue().Set(class_info->clazz.Get(isolate));
-                return;
+                r_value = class_info->clazz.Get(isolate);
+                return true;
             }
 
             // dynamic binding: godot class types
-            if (const NativeClassInfoPtr class_info = env->expose_godot_object_class(ClassDB::classes.getptr(original_name)))
+            if (const NativeClassInfoPtr class_info = p_env->expose_godot_object_class(ClassDB::classes.getptr(original_name)))
             {
                 jsb_check(class_info->name == p_type_name);
                 jsb_check(!class_info->clazz.IsEmpty());
-                info.GetReturnValue().Set(class_info->clazz.Get(isolate));
-                return;
+                r_value = class_info->clazz.Get(isolate);
+                return true;
             }
         }
 
@@ -117,8 +107,8 @@ namespace jsb
         {
             HashMap<StringName, int64_t> enum_values;
             CoreConstants::get_enum_values(original_name, &enum_values);
-            info.GetReturnValue().Set(BridgeHelper::to_global_enum(isolate, context, enum_values));
-            return;
+            r_value = BridgeHelper::to_global_enum(isolate, p_context, enum_values);
+            return true;
         }
 
         // (6) special case: `Variant` (`Variant` is not exposed as it-self in js, but we still need to access the nested enums in it)
@@ -129,12 +119,41 @@ namespace jsb
         if (original_name == jsb_string_name(Variant))
         {
             const v8::Local<v8::Object> obj = v8::Object::New(isolate);
-            obj->Set(context, impl::Helper::new_string(isolate, "Type"), BridgeHelper::to_global_enum(isolate, context, "Variant.Type")).Check();
-            obj->Set(context, impl::Helper::new_string(isolate, "Operator"), BridgeHelper::to_global_enum(isolate, context, "Variant.Operator")).Check();
-            info.GetReturnValue().Set(obj);
+            obj->Set(p_context, impl::Helper::new_string(isolate, "Type"), BridgeHelper::to_global_enum(isolate, p_context, "Variant.Type")).Check();
+            obj->Set(p_context, impl::Helper::new_string(isolate, "Operator"), BridgeHelper::to_global_enum(isolate, p_context, "Variant.Operator")).Check();
+            r_value = obj;
+            return true;
+        }
+
+        return false;
+    }
+
+    // JS function (type_name: string): type
+    // it's called from JS, load godot type with the `type_name` in the `godot` module (it can be type/singleton/constant/etc.)
+    // [JS] function load_type(type_name: string): Class;
+    static void _load_godot_object_class(const v8::FunctionCallbackInfo<v8::Value>& info)
+    {
+        v8::Isolate* isolate = info.GetIsolate();
+        const v8::Local<v8::Value> arg0 = info[0];
+        if (!arg0->IsString())
+        {
+            jsb_throw(isolate, "bad parameter");
             return;
         }
 
+        Environment* env = Environment::wrap(isolate);
+        jsb_check(env);
+        const v8::Local<v8::Context> context = isolate->GetCurrentContext();
+        const StringName p_type_name = impl::Helper::to_string(isolate, arg0);
+
+        v8::Local<v8::Value> rval;
+        if (GodotModuleLoader::resolve_godot_export(env, context, p_type_name, rval))
+        {
+            info.GetReturnValue().Set(rval);
+            return;
+        }
+
+        const StringName original_name = internal::StringNames::get_singleton().get_original_name(p_type_name);
         impl::Helper::throw_error(isolate, jsb_format("godot class not found '%s'", original_name));
     }
 

@@ -36,6 +36,16 @@ namespace jsb::internal
 				return "GArray";
 			}
 
+			if (p_original_name == Variant::get_type_name(Variant::STRING))
+			{
+				return "GString";
+			}
+
+			if (p_original_name == "Error")
+			{
+				return "GError";
+			}
+
 			return p_original_name;
 		}
 

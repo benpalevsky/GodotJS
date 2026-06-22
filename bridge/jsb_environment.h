@@ -170,6 +170,11 @@ namespace jsb
         // populated by NativeESMModuleResolver before `InstantiateModule` so the static
         // `ResolveModuleCallback` can resolve relative specifiers against the referrer's path.
         HashMap<int, StringName> esm_script_id_to_module_id_;
+
+        // Lazily produces synthetic `v8::Module`s for the `godot` / `godot-jsb` specifiers when
+        // imported from a `.mjs`. The CJS `GodotModuleLoader` / `BridgeModuleLoader` keep
+        // handling `require(...)`; the two paths share ClassDB but not module identity.
+        class GodotSyntheticModuleLoader* synthetic_module_loader_ = nullptr;
 #endif
 
 #if JSB_WITH_ESSENTIALS
@@ -581,6 +586,8 @@ namespace jsb
             const HashMap<int, StringName>::ConstIterator it = esm_script_id_to_module_id_.find(p_script_id);
             return it != esm_script_id_to_module_id_.end() ? it->value : StringName();
         }
+
+        class GodotSyntheticModuleLoader* get_synthetic_module_loader();
 #endif
 
         /**

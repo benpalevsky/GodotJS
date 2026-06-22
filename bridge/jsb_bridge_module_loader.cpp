@@ -553,14 +553,8 @@ namespace jsb
         }
     }
 
-    bool BridgeModuleLoader::load(Environment* p_env, JavaScriptModule& p_module)
+    v8::Local<v8::Object> BridgeModuleLoader::build_exports(v8::Isolate* isolate, const v8::Local<v8::Context>& context)
     {
-        v8::Isolate* isolate = p_env->get_isolate();
-        v8::Isolate::Scope isolate_scope(isolate);
-        v8::HandleScope handle_scope(isolate);
-        v8::Local<v8::Context> context = isolate->GetCurrentContext();
-        v8::Context::Scope context_scope(context);
-
         v8::Local<v8::Object> jsb_obj = v8::Object::New(isolate);
 
         // internal bridge functions & variables
@@ -629,7 +623,18 @@ namespace jsb
             EditorUtilityFuncs::expose(isolate, context, jsb_obj);
         }
 
-        p_module.exports.Reset(isolate, jsb_obj);
+        return jsb_obj;
+    }
+
+    bool BridgeModuleLoader::load(Environment* p_env, JavaScriptModule& p_module)
+    {
+        v8::Isolate* isolate = p_env->get_isolate();
+        v8::Isolate::Scope isolate_scope(isolate);
+        v8::HandleScope handle_scope(isolate);
+        v8::Local<v8::Context> context = isolate->GetCurrentContext();
+        v8::Context::Scope context_scope(context);
+
+        p_module.exports.Reset(isolate, build_exports(isolate, context));
         return true;
     }
 }
