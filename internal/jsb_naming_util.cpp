@@ -28,6 +28,7 @@ namespace jsb::internal
 			{ "Dictionary", "GDictionary" },
 			{ "Error", "GError" },
 			{ "Array", "GArray" },
+			{ "String", "GString" },
 			{ "OpenXRIPBinding", "OpenXRIPBinding" },
 			{ "OpenXRIPBindingModifier", "OpenXRIPBindingModifier" },
 			{ "SkeletonModification2DCCDIK", "SkeletonModification2DCcdik" },

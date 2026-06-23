@@ -13,6 +13,7 @@
 #include "jsb_essentials.h"
 #include "jsb_amd_module_loader.h"
 #include "jsb_native_esm_resolver.h"
+#include "jsb_godot_synthetic_module_loader.h"
 #include "jsb_thread_safe_for_nodes_scope.h"
 
 #include "../internal/jsb_path_util.h"
@@ -433,6 +434,14 @@ namespace jsb
             memdelete(pair.value);
             pair.value = nullptr;
         }
+
+#if JSB_NATIVE_ESM && JSB_WITH_V8
+        if (synthetic_module_loader_)
+        {
+            memdelete(synthetic_module_loader_);
+            synthetic_module_loader_ = nullptr;
+        }
+#endif
 
         jsb_check(object_db_.size() == 0);
         string_name_cache_.clear();
@@ -1135,6 +1144,17 @@ namespace jsb
         }
         return ModuleReloadResult::NoSuchModule;
     }
+
+#if JSB_NATIVE_ESM && JSB_WITH_V8
+    GodotSyntheticModuleLoader* Environment::get_synthetic_module_loader()
+    {
+        if (!synthetic_module_loader_)
+        {
+            synthetic_module_loader_ = memnew(GodotSyntheticModuleLoader(this));
+        }
+        return synthetic_module_loader_;
+    }
+#endif
 
     JavaScriptModule* Environment::_load_module(const String& p_parent_id, const String& p_module_id)
     {

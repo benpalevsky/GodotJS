@@ -3,6 +3,7 @@
 #if JSB_NATIVE_ESM && JSB_WITH_V8
 
 #include "jsb_environment.h"
+#include "jsb_godot_synthetic_module_loader.h"
 
 #include "../internal/jsb_path_util.h"
 
@@ -31,6 +32,15 @@ namespace jsb
         v8::Isolate* isolate = p_context->GetIsolate();
         Environment* env = Environment::wrap(p_context);
         const String specifier = impl::Helper::to_string(isolate, p_specifier);
+
+        // Synthetic modules (godot / godot-jsb) short-circuit the source-text path. Their
+        // identity isn't keyed on ScriptId — Module::ScriptId is undefined for SyntheticModules.
+        if (v8::MaybeLocal<v8::Module> synthetic = env->get_synthetic_module_loader()->resolve(p_context, specifier);
+            !synthetic.IsEmpty())
+        {
+            return synthetic;
+        }
+
         const String parent_id = env->find_esm_module_id_by_script_id(p_referrer->ScriptId());
 
         JavaScriptModule* child = env->_load_module(parent_id, specifier);
